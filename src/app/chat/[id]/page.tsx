@@ -20,7 +20,7 @@ interface Profile {
     full_name: string
     avatar_url: string
     location: string
-    email?: string // Checking for bot status
+    email?: string
 }
 
 export default function ChatPage() {
@@ -30,17 +30,33 @@ export default function ChatPage() {
     const [matchProfile, setMatchProfile] = useState<Profile | null>(null)
     const [currentUser, setCurrentUser] = useState<any>(null)
     const [loading, setLoading] = useState(true)
-    const [isTyping, setIsTyping] = useState(false) // Still useful for real-time updates
+    const [isTyping, setIsTyping] = useState(false)
 
+    // Refs for scrolling
     const messagesEndRef = useRef<HTMLDivElement>(null)
+    const scrollRef = useRef<HTMLDivElement>(null)
+    const [userScrolledUp, setUserScrolledUp] = useState(false)
+
     const supabase = createClient()
     const router = useRouter()
     const matchId = params.id as string
 
-    // Scroll to bottom on new messages
+    // Handle Scroll to detect if user is viewing history
+    const handleScroll = () => {
+        if (scrollRef.current) {
+            const { scrollTop, scrollHeight, clientHeight } = scrollRef.current
+            // If user is further than 150px from bottom, consider them "scrolled up"
+            const isAtBottom = scrollHeight - scrollTop - clientHeight < 150
+            setUserScrolledUp(!isAtBottom)
+        }
+    }
+
+    // Auto-scroll logic (Only if user is NOT looking at history)
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-    }, [messages, isTyping])
+        if (!userScrolledUp) {
+            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+        }
+    }, [messages, isTyping]) // Remove userScrolledUp from deps to avoid jump on scroll
 
     useEffect(() => {
         // Initial Load
@@ -60,12 +76,10 @@ export default function ChatPage() {
                 (payload) => {
                     const newMsg = payload.new as Message
                     setMessages(prev => {
-                        // Avoid duplicates
                         if (prev.find(m => m.id === newMsg.id)) return prev
                         return [...prev, newMsg]
                     })
 
-                    // If we receive a message from the other person, stop typing indicator
                     if (newMsg.sender_id !== currentUser?.id) {
                         setIsTyping(false)
                     }
@@ -76,7 +90,7 @@ export default function ChatPage() {
         return () => {
             supabase.removeChannel(channel)
         }
-    }, [matchId, currentUser]) // Add currentUser to deps to safely access id
+    }, [matchId, currentUser])
 
     const loadChatData = async () => {
         try {
@@ -85,7 +99,6 @@ export default function ChatPage() {
 
             if (!user) return
 
-            // Get match details
             const { data: matchData, error: matchError } = await supabase
                 .from('matches')
                 .select('*')
@@ -96,7 +109,6 @@ export default function ChatPage() {
 
             const otherUserId = matchData.user_1 === user.id ? matchData.user_2 : matchData.user_1
 
-            // Get other user's profile
             const { data: profile } = await supabase
                 .from('profiles')
                 .select('*')
@@ -105,7 +117,6 @@ export default function ChatPage() {
 
             setMatchProfile(profile)
 
-            // Get messages
             const { data: msgs, error: msgError } = await supabase
                 .from('messages')
                 .select('*')
@@ -127,7 +138,10 @@ export default function ChatPage() {
         if (!newMessage.trim() || !currentUser) return
 
         const msgContent = newMessage.trim()
-        setNewMessage('') // Optimistic clear
+        setNewMessage('')
+
+        // When sending a message, force scroll to bottom
+        setUserScrolledUp(false)
 
         // Optimistic UI
         const tempId = 'temp-' + Date.now()
@@ -141,7 +155,6 @@ export default function ChatPage() {
         setMessages(prev => [...prev, optimisticMsg])
 
         try {
-            // 1. Send User Message to DB
             const { error } = await supabase
                 .from('messages')
                 .insert({
@@ -153,43 +166,31 @@ export default function ChatPage() {
             if (error) {
                 console.error('Error sending message:', error)
                 setMessages(prev => prev.filter(m => m.id !== tempId))
-                alert('Message failed to send. Check console.')
                 return
             }
 
-            // ---------------------------------------------------------
-            // 🤖 BOT TRIGGER LOGIC (Fire & Forget)
-            // ---------------------------------------------------------
-            // Assume everyone is a bot for this demo, or check specific conditions
-            // Since we ONLY have fake users in this simulated environment, we trigger for everyone except ME.
+            // BOT TRIGGER (Fire & Forget)
             const isBot = true;
-
             if (isBot && matchProfile) {
-                // Show typing indicator immediately locally (optional, purely visual until reload)
                 setIsTyping(true)
-
                 const history = messages.slice(-10).map(m => ({
                     is_user: m.sender_id === currentUser.id,
                     content: m.content
                 }))
 
-                console.log("🚀 FIRE & FORGET: Triggering Bot API...");
-
-                // NO AWAIT here! Let the browser handle the request in background.
-                // We send 'match_id' and 'bot_id' so the SERVER can insert the reply.
                 fetch('/api/chat/bot', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         message: msgContent,
                         botName: matchProfile.full_name,
-                        botBio: (matchProfile as any).bio || "Just a mystery.",
+                        botBio: (matchProfile as any).bio,
                         botInterests: (matchProfile as any).interests || [],
                         history: history,
                         match_id: matchId,
                         bot_id: matchProfile.id
                     }),
-                    keepalive: true // Crucial: Allows request to survive page navigation
+                    keepalive: true
                 }).catch(err => console.error("❌ Bot trigger failed:", err))
             }
 
@@ -242,8 +243,12 @@ export default function ChatPage() {
                 </div>
             </div>
 
-            {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-hide">
+            {/* Messages Area - SCROLL REF ATTACHED HERE */}
+            <div
+                ref={scrollRef}
+                onScroll={handleScroll}
+                className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-hide"
+            >
                 {messages.map((msg) => {
                     const isMe = msg.sender_id === currentUser?.id
                     return (
