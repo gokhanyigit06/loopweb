@@ -28,21 +28,31 @@ export function AuthForm({ type }: AuthFormProps) {
 
         try {
             if (type === 'signup') {
-                const { error } = await supabase.auth.signUp({
+                const { data, error } = await supabase.auth.signUp({
                     email,
                     password,
                     options: {
-                        emailRedirectTo: `http://localhost:3000/auth/callback`,
+                        emailRedirectTo: `${window.location.origin}/auth/callback`,
                     },
                 })
                 if (error) throw error
-                setMessage('Check your email for the confirmation link!')
+
+                // If email confirmation is disabled (dev mode) or auto-confirmed, we get a session immediately
+                if (data.session) {
+                    router.push('/onboarding')
+                    router.refresh()
+                } else {
+                    setMessage('Check your email for the confirmation link!')
+                }
             } else {
                 const { error } = await supabase.auth.signInWithPassword({
                     email,
                     password,
                 })
                 if (error) throw error
+
+                // Check if user has a profile? Ideally middleware handles this.
+                // For now, go to discover, if card stack fails it handles it or we add a check later.
                 router.push('/discover')
                 router.refresh()
             }
@@ -100,6 +110,17 @@ export function AuthForm({ type }: AuthFormProps) {
                         placeholder="••••••••"
                     />
                 </div>
+
+                {type === 'login' && (
+                    <div className="flex justify-end -mt-2">
+                        <Link
+                            href="/forgot-password"
+                            className="text-xs text-primary/80 hover:text-primary transition-colors"
+                        >
+                            Forgot password?
+                        </Link>
+                    </div>
+                )}
 
                 {error && (
                     <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-sm">
