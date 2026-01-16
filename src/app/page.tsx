@@ -3,6 +3,8 @@ import { Hero } from '@/components/landing/Hero'
 import { Features } from '@/components/landing/Features'
 import { redirect } from 'next/navigation'
 
+import AdBanner from '@/components/ads/AdBanner'
+
 export default function Home({
   searchParams,
 }: {
@@ -16,6 +18,7 @@ export default function Home({
   return (
     <main className="min-h-screen bg-background">
       <Navbar />
+      <AdBanner />
       <Hero />
       <Features />
 
