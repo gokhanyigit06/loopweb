@@ -321,19 +321,19 @@ export function CardStack() {
                                         {/* Inline Action Buttons */}
                                         <div className="flex items-center justify-center gap-6 pb-2">
                                             <button
-                                                onClick={(e) => { e.stopPropagation(); removeCard('reject'); }}
+                                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); removeCard('reject'); }}
                                                 className="w-14 h-14 rounded-full bg-zinc-800/80 border border-red-500/20 flex items-center justify-center text-red-500 hover:scale-110 transition-all z-20 cursor-pointer"
                                             >
                                                 <X className="w-7 h-7" />
                                             </button>
                                             <button
-                                                onClick={(e) => { e.stopPropagation(); setShowPremiumModal(true); }}
+                                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPremiumModal(true); }}
                                                 className="w-12 h-12 rounded-full bg-zinc-800/80 border border-yellow-500/20 flex items-center justify-center text-yellow-500 hover:scale-110 transition-all z-20 cursor-pointer"
                                             >
                                                 <Sparkles className="w-5 h-5 fill-yellow-500" />
                                             </button>
                                             <button
-                                                onClick={(e) => { e.stopPropagation(); removeCard('like'); }}
+                                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); removeCard('like'); }}
                                                 className="w-14 h-14 rounded-full bg-zinc-800/80 border border-green-500/20 flex items-center justify-center text-green-500 hover:scale-110 transition-all z-20 cursor-pointer"
                                             >
                                                 <Heart className="w-7 h-7 fill-green-500" />
