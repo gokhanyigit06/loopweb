@@ -1,66 +1,161 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion'
 import { Heart, X, Info, MapPin, Search, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { createClient } from '@/lib/supabase/client'
 
 interface Profile {
     id: string
     full_name: string
-    age: number
+    birth_date: string
     bio: string
     location: string
     avatar_url: string
+    interests: string[]
 }
 
-const MOCK_PROFILES: Profile[] = [
-    {
-        id: '1',
-        full_name: 'Selen',
-        age: 24,
-        bio: 'Coffee lover and traveler. Let\'s explore the city!',
-        location: 'Istanbul',
-        avatar_url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=800&auto=format&fit=crop&q=60'
-    },
-    {
-        id: '2',
-        full_name: 'Can',
-        age: 27,
-        bio: 'Music producer. I like jazz and rock. 🎸',
-        location: 'Ankara',
-        avatar_url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=800&auto=format&fit=crop&q=60'
-    },
-    {
-        id: '3',
-        full_name: 'Melis',
-        age: 22,
-        bio: 'Art student. Painting my way through life. 🎨',
-        location: 'Izmir',
-        avatar_url: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=800&auto=format&fit=crop&q=60'
-    }
-]
-
 export function CardStack() {
-    const [profiles, setProfiles] = useState(MOCK_PROFILES)
+    const [profiles, setProfiles] = useState<Profile[]>([])
+    const [loading, setLoading] = useState(true)
+    const [currentUser, setCurrentUser] = useState<any>(null)
+    const supabase = createClient()
+
     const x = useMotionValue(0)
     const rotate = useTransform(x, [-200, 200], [-25, 25])
     const opacity = useTransform(x, [-200, -150, 0, 150, 200], [0, 1, 1, 1, 0])
     const likeOpacity = useTransform(x, [50, 150], [0, 1])
     const rejectOpacity = useTransform(x, [-50, -150], [0, 1])
 
+    useEffect(() => {
+        loadProfiles()
+    }, [])
+
+    const loadProfiles = async () => {
+        try {
+            // Get current user
+            const { data: { user } } = await supabase.auth.getUser()
+            setCurrentUser(user)
+
+            if (!user) {
+                setLoading(false)
+                return
+            }
+
+            // Get user's profile to check gender preference
+            const { data: userProfile } = await supabase
+                .from('profiles')
+                .select('looking_for, gender')
+                .eq('id', user.id)
+                .single()
+
+            // Get profiles that user hasn't liked yet
+            const { data: likedIds } = await supabase
+                .from('likes')
+                .select('liked_id')
+                .eq('liker_id', user.id)
+
+            const likedUserIds = likedIds?.map(like => like.liked_id) || []
+
+            // Fetch potential matches
+            let query = supabase
+                .from('profiles')
+                .select('*')
+                .neq('id', user.id)
+                .not('id', 'in', `(${likedUserIds.join(',') || 'null'})`)
+                .limit(20)
+
+            // Filter by gender preference if set
+            if (userProfile?.looking_for) {
+                query = query.eq('gender', userProfile.looking_for)
+            }
+
+            const { data, error } = await query
+
+            if (error) throw error
+            setProfiles(data || [])
+        } catch (error) {
+            console.error('Error loading profiles:', error)
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const calculateAge = (birthDate: string) => {
+        const today = new Date()
+        const birth = new Date(birthDate)
+        let age = today.getFullYear() - birth.getFullYear()
+        const monthDiff = today.getMonth() - birth.getMonth()
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+            age--
+        }
+        return age
+    }
+
     const handleDragEnd = (event: any, info: any) => {
         if (info.offset.x > 100) {
-            // Swiped right (Like)
             removeCard('like')
         } else if (info.offset.x < -100) {
-            // Swiped left (Reject)
             removeCard('reject')
         }
     }
 
-    const removeCard = (action: 'like' | 'reject') => {
+    const removeCard = async (action: 'like' | 'reject') => {
+        if (profiles.length === 0 || !currentUser) return
+
+        const currentProfile = profiles[0]
+
+        if (action === 'like') {
+            try {
+                // Create a like
+                const { error } = await supabase
+                    .from('likes')
+                    .insert({
+                        liker_id: currentUser.id,
+                        liked_id: currentProfile.id
+                    })
+
+                if (error) throw error
+
+                // Check if it's a match (the trigger will create it automatically)
+                const { data: match } = await supabase
+                    .from('matches')
+                    .select('*')
+                    .or(`and(user_1.eq.${currentUser.id},user_2.eq.${currentProfile.id}),and(user_1.eq.${currentProfile.id},user_2.eq.${currentUser.id})`)
+                    .single()
+
+                if (match) {
+                    // Show match notification (we'll implement this later)
+                    console.log('It\'s a match! 🎉')
+                }
+            } catch (error) {
+                console.error('Error creating like:', error)
+            }
+        }
+
+        // Remove the card from the stack
         setProfiles((prev) => prev.slice(1))
+    }
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center h-[60vh]">
+                <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+            </div>
+        )
+    }
+
+    if (!currentUser) {
+        return (
+            <div className="flex flex-col items-center justify-center h-[60vh] text-center p-8">
+                <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mb-4">
+                    <Heart className="w-10 h-10 text-primary" />
+                </div>
+                <h3 className="text-xl font-bold">Please log in</h3>
+                <p className="text-white/40 mt-2">You need to be logged in to discover people</p>
+            </div>
+        )
     }
 
     if (profiles.length === 0) {
@@ -80,6 +175,8 @@ export function CardStack() {
             <AnimatePresence>
                 {profiles.map((profile, index) => {
                     const isTop = index === 0
+                    const age = calculateAge(profile.birth_date)
+
                     return (
                         <motion.div
                             key={profile.id}
@@ -128,7 +225,7 @@ export function CardStack() {
                                 <div className="flex items-end justify-between mb-2">
                                     <div>
                                         <h2 className="text-3xl font-bold text-white flex items-center gap-2">
-                                            {profile.full_name}, {profile.age}
+                                            {profile.full_name}, {age}
                                         </h2>
                                         <p className="text-white/70 flex items-center gap-1 mt-1">
                                             <MapPin className="w-4 h-4" />
@@ -139,9 +236,21 @@ export function CardStack() {
                                         <Info className="w-5 h-5 text-white" />
                                     </button>
                                 </div>
-                                <p className="text-white/60 line-clamp-2 text-sm leading-relaxed">
+                                <p className="text-white/60 line-clamp-2 text-sm leading-relaxed mb-3">
                                     {profile.bio}
                                 </p>
+                                {profile.interests && profile.interests.length > 0 && (
+                                    <div className="flex flex-wrap gap-2">
+                                        {profile.interests.slice(0, 3).map((interest, idx) => (
+                                            <span
+                                                key={idx}
+                                                className="px-3 py-1 rounded-full bg-white/10 backdrop-blur-sm text-xs text-white/80 border border-white/10"
+                                            >
+                                                {interest}
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         </motion.div>
                     )

@@ -1,36 +1,124 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 💕 LoopWeb - Modern Dating App
 
-## Getting Started
+A premium, mobile-first dating application built with Next.js, Supabase, and Tailwind CSS.
 
-First, run the development server:
+## ✨ Features
 
+- 🔐 **Authentication** - Email/Password signup and login with Supabase Auth
+- 💫 **Swipeable Cards** - Tinder-like card stack with smooth animations
+- 💖 **Smart Matching** - Automatic match creation on mutual likes
+- 💬 **Real-time Chat** - Live messaging with Supabase Realtime
+- 📱 **Mobile-First** - Optimized for mobile devices with bottom navigation
+- 🎨 **Premium Design** - Modern, dark-themed UI with glassmorphism effects
+
+## 🚀 Tech Stack
+
+- **Framework:** Next.js 16 (App Router)
+- **Styling:** Tailwind CSS 4
+- **Database:** Supabase (PostgreSQL)
+- **Auth:** Supabase Auth
+- **Animations:** Framer Motion
+- **Icons:** Lucide React
+- **Deployment:** Vercel
+
+## 📦 Installation
+
+1. Clone the repository:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone https://github.com/gokhanyigit06/loopweb.git
+cd loopweb
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. Install dependencies:
+```bash
+npm install
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+3. Create a `.env.local` file:
+```env
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+4. Set up the database:
+   - Go to your Supabase project dashboard
+   - Navigate to SQL Editor
+   - Run the migration file: `supabase/migrations/20240116_initial_schema.sql`
+   - Run the seed file: `supabase/seed.sql` (for test users)
 
-## Learn More
+5. Run the development server:
+```bash
+npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+6. Open [http://localhost:3000](http://localhost:3000)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 🗄️ Database Schema
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Tables:
+- **profiles** - User profiles with bio, interests, location
+- **likes** - One-way likes between users
+- **matches** - Mutual likes (automatically created)
+- **messages** - Chat messages between matched users
 
-## Deploy on Vercel
+### Key Features:
+- Automatic match creation on mutual likes (PostgreSQL trigger)
+- Row Level Security (RLS) policies for data protection
+- Real-time subscriptions for instant messaging
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 📱 App Structure
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+/                   - Landing page
+/login              - Login page
+/signup             - Signup page
+/discover           - Swipeable profile cards
+/matches            - View all matches
+/chat               - Chat list
+/chat/[id]          - Individual chat conversation
+/profile            - User profile settings
+```
+
+## 🎯 Usage Flow
+
+1. **Sign Up** - Create an account
+2. **Complete Profile** - Add bio, interests, photos
+3. **Discover** - Swipe right (like) or left (pass) on profiles
+4. **Match** - When both users like each other, it's a match!
+5. **Chat** - Start conversations with your matches
+
+## 🧪 Test Users
+
+The app comes with 10 pre-seeded test users. After running the seed file, you can:
+- Create a new account
+- Start swiping on test profiles
+- Test the matching and chat features
+
+## 🔒 Security
+
+- All database operations protected by Row Level Security (RLS)
+- Authentication handled by Supabase Auth
+- Secure session management with middleware
+- HTTPS-only in production
+
+## 🚀 Deployment
+
+Deploy to Vercel:
+
+```bash
+vercel
+```
+
+Make sure to add your environment variables in the Vercel dashboard.
+
+## 📄 License
+
+MIT
+
+## 👨‍💻 Author
+
+Gökhan Yiğit - [@gokhanyigit06](https://github.com/gokhanyigit06)
+
+---
+
+Made with ❤️ and Next.js
