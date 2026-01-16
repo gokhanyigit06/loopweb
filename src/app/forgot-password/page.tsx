@@ -14,8 +14,8 @@ export default function ForgotPasswordPage() {
 
     const supabase = createClient()
 
-    const handleReset = async (e: React.FormEvent) => {
-        e.preventDefault()
+    const handleReset = async (e?: React.FormEvent) => {
+        if (e) e.preventDefault()
         setLoading(true)
         setError(null)
         setMessage(null)
@@ -80,7 +80,14 @@ export default function ForgotPasswordPage() {
 
                     {message && (
                         <div className="p-3 rounded-xl bg-green-500/10 border border-green-500/20 text-green-500 text-sm">
-                            {message}
+                            <p>{message}</p>
+                            <button
+                                type="button"
+                                onClick={() => handleReset()}
+                                className="text-xs underline mt-2 hover:text-green-400 font-medium"
+                            >
+                                Didn't receive it? Resend Link
+                            </button>
                         </div>
                     )}
 
