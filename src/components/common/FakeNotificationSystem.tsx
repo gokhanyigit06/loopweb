@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Bell, Eye, Heart, UserPlus, Zap } from 'lucide-react'
 import { PremiumModal } from '@/components/premium/PremiumModal'
+import { createClient } from '@/lib/supabase/client'
 
 const FAKE_NOTIFICATIONS = [
     {
@@ -41,14 +42,25 @@ const FAKE_NOTIFICATIONS = [
 export function FakeNotificationSystem() {
     const [currentNotif, setCurrentNotif] = useState<typeof FAKE_NOTIFICATIONS[0] | null>(null)
     const [showPremiumModal, setShowPremiumModal] = useState(false)
+    const supabase = createClient()
+    const isRunning = useRef(true)
 
     useEffect(() => {
-        // Initial delay before starting notifications
-        const initTimeout = setTimeout(() => {
-            scheduleNextNotification()
-        }, 8000) // Start after 8 seconds
+        const checkAuthAndStart = async () => {
+            const { data: { session } } = await supabase.auth.getSession()
 
-        return () => clearTimeout(initTimeout)
+            // Only start if user is logged in
+            if (session) {
+                const initTimeout = setTimeout(() => {
+                    if (isRunning.current) scheduleNextNotification()
+                }, 8000) // Start after 8 seconds
+                return () => clearTimeout(initTimeout)
+            }
+        }
+
+        checkAuthAndStart()
+
+        return () => { isRunning.current = false }
     }, [])
 
     const scheduleNextNotification = () => {
