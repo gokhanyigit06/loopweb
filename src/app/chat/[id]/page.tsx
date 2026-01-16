@@ -100,8 +100,9 @@ export default function ChatPage() {
         setIsTyping(true)
         if (!matchProfile) return
 
-        // 1. Simulate human delay (Minimum 3s to feel real)
-        const minDelayPromise = new Promise(resolve => setTimeout(resolve, 3000))
+        // 1. Simulate REALISTIC human delay (Random between 25s and 35s)
+        const randomDelay = Math.floor(Math.random() * 10000) + 25000
+        const minDelayPromise = new Promise(resolve => setTimeout(resolve, randomDelay))
 
         try {
             // 2. Prepare conversation history for context

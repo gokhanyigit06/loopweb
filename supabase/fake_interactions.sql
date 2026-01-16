@@ -37,18 +37,11 @@ RETURNS boolean
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
-DECLARE
-    is_fake boolean;
-    existing_match uuid;
-    fake_location text;
-    msg_content text;
-    tr_msgs text[] := ARRAY['Selam, naber? 👋', 'Fotoğrafların harika görünüyor! 📸', 'Selam, tanışalım mı?', 'Tarzını çok beğendim 🔥', 'Yakınlardayız sanırım, bir kahve? ☕️'];
-    en_msgs text[] := ARRAY['Hi there! 👋', 'Love your profile vibe ✨', 'Hey! How is it going?', 'Cute smile! 😉', 'We matched! Coffee sometime? ☕️'];
+    -- (Variable declarations for messages removed)
 BEGIN
     INSERT INTO likes (liker_id, liked_id) VALUES (liker_id, liked_id) ON CONFLICT DO NOTHING;
-
-    SELECT location INTO fake_location FROM profiles WHERE id = liked_id;
     
+    -- Ensure the fake user likes back to create a match
     INSERT INTO likes (liker_id, liked_id) VALUES (liked_id, liker_id) ON CONFLICT DO NOTHING;
 
     INSERT INTO matches (user_1, user_2)
@@ -61,15 +54,8 @@ BEGIN
          WHERE (user_1 = liker_id AND user_2 = liked_id) OR (user_1 = liked_id AND user_2 = liker_id);
     END IF;
 
-    IF fake_location ILIKE '%Turkey%' OR fake_location ILIKE '%Istanbul%' OR fake_location ILIKE '%Ankara%' OR fake_location ILIKE '%Izmir%' OR fake_location ILIKE '%Bursa%' OR fake_location ILIKE '%Antalya%' THEN
-        msg_content := tr_msgs[floor(random() * array_length(tr_msgs, 1) + 1)];
-    ELSE
-        msg_content := en_msgs[floor(random() * array_length(en_msgs, 1) + 1)];
-    END IF;
-    
-    IF NOT EXISTS (SELECT 1 FROM messages WHERE match_id = existing_match) THEN
-         INSERT INTO messages (match_id, sender_id, content) VALUES (existing_match, liked_id, msg_content);
-    END IF;
+    -- REMOVED AUTOMATIC FIRST MESSAGE LOGIC
+    -- We want the Real User to msg first, then the Bot replies via API.
 
     RETURN true;
 END;
