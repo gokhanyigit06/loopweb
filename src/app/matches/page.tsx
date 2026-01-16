@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Lock, Star, Heart, MessageCircle, ChevronRight } from 'lucide-react'
 import { PremiumModal } from '@/components/premium/PremiumModal'
 import Link from 'next/link'
+import AdBanner from '@/components/ads/AdBanner'
 
 interface Like {
     liker_id: string
@@ -174,6 +175,9 @@ export default function MatchesPage() {
                     </button>
                 </div>
             </div>
+
+            {/* Advertisement */}
+            <AdBanner />
 
             <div className="p-4">
                 {activeTab === 'matches' ? (
