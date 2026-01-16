@@ -97,11 +97,15 @@ export default function ChatPage() {
     }, [messages, currentUser, matchProfile])
 
     const triggerBotResponse = async (userMsg: string) => {
+        console.log("🚀 TRIGGER: Bot response triggered for message:", userMsg);
         setIsTyping(true)
-        if (!matchProfile) return
+        if (!matchProfile) {
+            console.error("❌ TRIGGER: Match profile missing!");
+            return
+        }
 
-        // 1. Simulate REALISTIC human delay (Random between 25s and 35s)
-        const randomDelay = Math.floor(Math.random() * 10000) + 25000
+        // 1. Simulate human delay (Random between 5s and 10s)
+        const randomDelay = Math.floor(Math.random() * 5000) + 5000
         const minDelayPromise = new Promise(resolve => setTimeout(resolve, randomDelay))
 
         try {
@@ -110,6 +114,8 @@ export default function ChatPage() {
                 is_user: m.sender_id === currentUser.id,
                 content: m.content
             }))
+
+            console.log("🚀 TRIGGER: Calling API...");
 
             // 3. Call our Smart Bot API (connected to Google Gemini)
             const apiPromise = fetch('/api/chat/bot', {
@@ -127,10 +133,15 @@ export default function ChatPage() {
             // Wait for both the natural delay and the API response
             const [_, apiResponse] = await Promise.all([minDelayPromise, apiPromise])
 
-            if (!apiResponse.ok) throw new Error('Bot API failed')
+            if (!apiResponse.ok) {
+                console.error("❌ TRIGGER: API Response Status:", apiResponse.status);
+                throw new Error('Bot API failed with status ' + apiResponse.status)
+            }
 
             const data = await apiResponse.json()
             const replyContent = data.reply
+
+            console.log("🚀 TRIGGER: API Reply received:", replyContent);
 
             setIsTyping(false)
 
@@ -165,6 +176,7 @@ export default function ChatPage() {
 
         } catch (error) {
             console.error("Bot generation error:", error)
+            // alert("Debug: Bot failed to reply. Check console."); // Uncomment for debugging
             setIsTyping(false)
         }
     }
