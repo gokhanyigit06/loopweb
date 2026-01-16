@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Bell, Eye, Heart, UserPlus, Zap } from 'lucide-react'
 import { PremiumModal } from '@/components/premium/PremiumModal'
 import { createClient } from '@/lib/supabase/client'
+import { usePathname } from 'next/navigation'
 
 const FAKE_NOTIFICATIONS = [
     {
@@ -40,12 +41,17 @@ const FAKE_NOTIFICATIONS = [
 ]
 
 export function FakeNotificationSystem() {
+    const pathname = usePathname()
     const [currentNotif, setCurrentNotif] = useState<typeof FAKE_NOTIFICATIONS[0] | null>(null)
     const [showPremiumModal, setShowPremiumModal] = useState(false)
     const supabase = createClient()
     const isRunning = useRef(true)
 
+    // Strict Page Filter: Only show on main app pages
+    const isAppPage = ['/discover', '/matches', '/chat', '/profile'].some(path => pathname.startsWith(path))
+
     useEffect(() => {
+        if (!isAppPage) return
         const checkAuthAndStart = async () => {
             const { data: { session } } = await supabase.auth.getSession()
 
@@ -84,6 +90,8 @@ export function FakeNotificationSystem() {
         setCurrentNotif(null)
         setShowPremiumModal(true)
     }
+
+    if (!isAppPage) return null
 
     return (
         <>
