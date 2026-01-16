@@ -18,7 +18,7 @@ BEGIN
             WHERE l.liker_id = p.id AND l.liked_id = target_user_id
         )
         ORDER BY random()
-        LIMIT 3
+        LIMIT 1
     LOOP
         INSERT INTO likes (liker_id, liked_id)
         VALUES (fake_user.id, target_user_id)

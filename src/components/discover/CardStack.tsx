@@ -211,28 +211,39 @@ export function CardStack() {
 
         if (action === 'like') {
             try {
-                // Growth Hacking: Use RPC to force match and creating message
-                const { data: isMatch, error: rpcError } = await supabase
-                    .rpc('handle_new_match', {
-                        liker_id: currentUser.id,
-                        liked_id: currentProfile.id
-                    })
+                // GAMIFICATION: 40% Chance to match ("Hard to get")
+                // This makes matches feel more rewarding.
+                const shouldMatch = Math.random() < 0.4
 
-                if (rpcError) {
-                    console.error("RPC Error (handle_new_match):", rpcError)
-                    // Fallback to standard insert if RPC fails/doesn't exist
-                    const { error } = await supabase
+                if (shouldMatch) {
+                    // Growth Hacking: Use RPC to force match and creating message
+                    const { data: isMatch, error: rpcError } = await supabase
+                        .rpc('handle_new_match', {
+                            liker_id: currentUser.id,
+                            liked_id: currentProfile.id
+                        })
+
+                    if (rpcError) {
+                        console.error("RPC Error (handle_new_match):", rpcError)
+                        // Fallback to standard insert
+                        await supabase
+                            .from('likes')
+                            .insert({ liker_id: currentUser.id, liked_id: currentProfile.id })
+                    } else if (isMatch) {
+                        // IT'S A MATCH!
+                        setMatchData({
+                            myAvatar: myProfile?.avatar_url || 'https://via.placeholder.com/150',
+                            theirAvatar: currentProfile.avatar_url,
+                            theirName: currentProfile.full_name
+                        })
+                        setShowMatchModal(true)
+                    }
+                } else {
+                    // Standard Silent Like (No match yet)
+                    // The user likes them, but "they haven't liked back yet"
+                    await supabase
                         .from('likes')
                         .insert({ liker_id: currentUser.id, liked_id: currentProfile.id })
-                    if (error) throw error
-                } else if (isMatch) {
-                    // IT'S A MATCH!
-                    setMatchData({
-                        myAvatar: myProfile?.avatar_url || 'https://via.placeholder.com/150',
-                        theirAvatar: currentProfile.avatar_url,
-                        theirName: currentProfile.full_name
-                    })
-                    setShowMatchModal(true)
                 }
             } catch (error) {
                 console.error('Error creating like:', error)

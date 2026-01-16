@@ -51,8 +51,8 @@ export default function MatchesPage() {
             // For the sake of the user request "dolsun" (fill up), let's rely on the generator to keep adding UNMATCHED likes.
 
             // Check if we need to generate fake likes
-            // If likes count is low (< 5), generate more!
-            if ((!likeData || likeData.length < 5) && !generating) {
+            // Growth Hacking: If likes are absolutely empty, generate 1 fake like (Slow burn)
+            if (likeData && likeData.length === 0 && !generating) {
                 setGenerating(true)
                 try {
                     await supabase.rpc('generate_initial_likes', { target_user_id: user.id })
