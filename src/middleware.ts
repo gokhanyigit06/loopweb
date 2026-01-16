@@ -37,15 +37,38 @@ export async function middleware(request: NextRequest) {
         data: { user },
     } = await supabase.auth.getUser()
 
-    if (
-        !user &&
-        !request.nextUrl.pathname.startsWith('/login') &&
-        !request.nextUrl.pathname.startsWith('/auth') &&
-        request.nextUrl.pathname !== '/'
-    ) {
-        // no user, potentially redirect to login page
-        // for now we'll just let them pass to landing, but protect app routes later
-        // return NextResponse.redirect(new URL('/login', request.url))
+    // Protected routes logic
+    if (user) {
+        // Check if onboarding is completed
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('onboarding_completed')
+            .eq('id', user.id)
+            .single()
+
+        const isComplete = profile?.onboarding_completed
+        const isOnboarding = request.nextUrl.pathname.startsWith('/onboarding')
+        const isAuth = request.nextUrl.pathname.startsWith('/auth') ||
+            request.nextUrl.pathname === '/login' ||
+            request.nextUrl.pathname === '/signup'
+
+        if (!isComplete && !isOnboarding && !isAuth && request.nextUrl.pathname !== '/') {
+            return NextResponse.redirect(new URL('/onboarding', request.url))
+        }
+
+        if (isComplete && isOnboarding) {
+            return NextResponse.redirect(new URL('/discover', request.url))
+        }
+    } else {
+        const isProtectedRoute = request.nextUrl.pathname.startsWith('/discover') ||
+            request.nextUrl.pathname.startsWith('/matches') ||
+            request.nextUrl.pathname.startsWith('/chat') ||
+            request.nextUrl.pathname.startsWith('/profile') ||
+            request.nextUrl.pathname.startsWith('/onboarding')
+
+        if (isProtectedRoute) {
+            return NextResponse.redirect(new URL('/login', request.url))
+        }
     }
 
     return response

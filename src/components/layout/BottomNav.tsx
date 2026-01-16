@@ -15,6 +15,9 @@ const navItems = [
 export function BottomNav() {
     const pathname = usePathname()
 
+    // Hide bottom nav on specific pages like chat details
+    if (pathname.includes('/chat/')) return null
+
     // Only show bottom nav on app pages
     const isAppPage = ['/discover', '/matches', '/chat', '/profile'].some(path => pathname.startsWith(path))
 

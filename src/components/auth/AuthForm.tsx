@@ -32,7 +32,7 @@ export function AuthForm({ type }: AuthFormProps) {
                     email,
                     password,
                     options: {
-                        emailRedirectTo: `${window.location.origin}/auth/callback`,
+                        emailRedirectTo: `http://localhost:3000/auth/callback`,
                     },
                 })
                 if (error) throw error
