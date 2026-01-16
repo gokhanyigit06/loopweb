@@ -211,9 +211,23 @@ export function CardStack() {
 
         if (action === 'like') {
             try {
-                // GAMIFICATION: 40% Chance to match ("Hard to get")
-                // This makes matches feel more rewarding.
-                const shouldMatch = Math.random() < 0.4
+                // GAMIFICATION: "Hard to get" Logic
+                // 1. New users (first 12 hours) get NO matches to feel realistic (avoid instant bot feeling).
+                // 2. After 12 hours, they get 40% match chance.
+
+                let matchProbability = 0.4
+
+                if (myProfile?.created_at) {
+                    const joinDate = new Date(myProfile.created_at)
+                    const now = new Date()
+                    const hoursSinceJoin = (now.getTime() - joinDate.getTime()) / (1000 * 60 * 60)
+
+                    if (hoursSinceJoin < 12) {
+                        matchProbability = 0 // ZERO matches in first 12 hours
+                    }
+                }
+
+                const shouldMatch = Math.random() < matchProbability
 
                 if (shouldMatch) {
                     // Growth Hacking: Use RPC to force match and creating message
@@ -240,7 +254,6 @@ export function CardStack() {
                     }
                 } else {
                     // Standard Silent Like (No match yet)
-                    // The user likes them, but "they haven't liked back yet"
                     await supabase
                         .from('likes')
                         .insert({ liker_id: currentUser.id, liked_id: currentProfile.id })
@@ -251,160 +264,150 @@ export function CardStack() {
         }
     }
 
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center h-[60vh]">
-                <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-            </div>
-        )
-    }
+    const loadingView = (
+        <div className="flex items-center justify-center h-[60vh]">
+            <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+        </div>
+    )
 
-    if (!currentUser) {
-        return (
-            <div className="flex flex-col items-center justify-center h-[60vh] text-center p-8">
-                <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mb-4">
-                    <Heart className="w-10 h-10 text-primary" />
-                </div>
-                <h3 className="text-xl font-bold">Please log in</h3>
-                <p className="text-white/40 mt-2">You need to be logged in to discover people</p>
+    const loginView = (
+        <div className="flex flex-col items-center justify-center h-[60vh] text-center p-8">
+            <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mb-4">
+                <Heart className="w-10 h-10 text-primary" />
             </div>
-        )
-    }
+            <h3 className="text-xl font-bold">Please log in</h3>
+            <p className="text-white/40 mt-2">You need to be logged in to discover people</p>
+        </div>
+    )
 
-    if (profiles.length === 0) {
-        return (
-            <div className="flex flex-col items-center justify-center h-[60vh] text-center p-8">
-                <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mb-4">
-                    <Search className="w-10 h-10 text-primary animate-pulse" />
-                </div>
-                <h3 className="text-xl font-bold">No one new around you</h3>
-                <p className="text-white/40 mt-2">Try changing your filters or check back later!</p>
+    const emptyView = (
+        <div className="flex flex-col items-center justify-center h-[60vh] text-center p-8">
+            <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mb-4">
+                <Search className="w-10 h-10 text-primary animate-pulse" />
             </div>
-        )
-    }
+            <h3 className="text-xl font-bold">No one new around you</h3>
+            <p className="text-white/40 mt-2">Try changing your filters or check back later!</p>
+        </div>
+    )
 
     return (
         <>
-            <div className="relative w-full max-w-sm h-[600px] mx-auto perspective-1000">
-                <AnimatePresence>
-                    {profiles.map((profile, index) => {
-                        const isTop = index === 0
-                        const age = calculateAge(profile.birth_date)
-                        const joinDate = profile.updated_at ? new Date(profile.updated_at).getFullYear() : (profile.created_at ? new Date(profile.created_at).getFullYear() : '2024')
+            {loading ? loadingView :
+                !currentUser ? loginView :
+                    profiles.length === 0 ? emptyView : (
+                        <div className="relative w-full max-w-sm h-[600px] mx-auto perspective-1000">
+                            <AnimatePresence>
+                                {profiles.map((profile, index) => {
+                                    const isTop = index === 0
+                                    const age = calculateAge(profile.birth_date)
+                                    const joinDate = profile.updated_at ? new Date(profile.updated_at).getFullYear() : (profile.created_at ? new Date(profile.created_at).getFullYear() : '2024')
 
-                        return (
-                            <SwipeableCard
-                                key={profile.id}
-                                profile={profile}
-                                index={index}
-                                isTop={isTop}
-                                onSwipe={removeCard}
-                                exitDirection={exitDirection}
-                                setShowPremiumModal={setShowPremiumModal}
-                            >
-                                {/* Content Inside Card */}
-                                <div className="h-full overflow-y-auto scrollbar-hide pb-0">
-                                    {/* Main Hero Image */}
-                                    <div className="h-[75%] relative">
-                                        <img
-                                            src={profile.avatar_url}
-                                            alt={profile.full_name}
-                                            className="w-full h-full object-cover pointer-events-none select-none"
-                                            draggable={false}
-                                        />
+                                    return (
+                                        <SwipeableCard
+                                            key={profile.id}
+                                            profile={profile}
+                                            index={index}
+                                            isTop={isTop}
+                                            onSwipe={removeCard}
+                                            exitDirection={exitDirection}
+                                            setShowPremiumModal={setShowPremiumModal}
+                                        >
+                                            <div className="h-full overflow-y-auto scrollbar-hide pb-0">
+                                                <div className="h-[75%] relative">
+                                                    <img
+                                                        src={profile.avatar_url}
+                                                        alt={profile.full_name}
+                                                        className="w-full h-full object-cover pointer-events-none select-none"
+                                                        draggable={false}
+                                                    />
 
-                                        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-zinc-900 via-zinc-900/60 to-transparent pointer-events-none" />
+                                                    <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-zinc-900 via-zinc-900/60 to-transparent pointer-events-none" />
 
-                                        <div className="absolute bottom-0 inset-x-0 p-6 pointer-events-none">
-                                            <h2 className="text-3xl font-bold text-white flex items-center gap-2">
-                                                {profile.full_name}, {age}
-                                            </h2>
-                                            <p className="text-white/70 flex items-center gap-1 mt-1 font-medium">
-                                                <MapPin className="w-4 h-4 text-primary" />
-                                                {profile.location || 'Unknown Location'}
-                                            </p>
-                                        </div>
-                                    </div>
+                                                    <div className="absolute bottom-0 inset-x-0 p-6 pointer-events-none">
+                                                        <h2 className="text-3xl font-bold text-white flex items-center gap-2">
+                                                            {profile.full_name}, {age}
+                                                        </h2>
+                                                        <p className="text-white/70 flex items-center gap-1 mt-1 font-medium">
+                                                            <MapPin className="w-4 h-4 text-primary" />
+                                                            {profile.location || 'Unknown Location'}
+                                                        </p>
+                                                    </div>
+                                                </div>
 
-                                    {/* Detailed Content */}
-                                    <div className="px-6 pb-24 bg-zinc-900 space-y-8 pt-6 select-text cursor-auto">
+                                                <div className="px-6 pb-24 bg-zinc-900 space-y-8 pt-6 select-text cursor-auto">
 
-                                        {/* Inline Action Buttons */}
-                                        <div className="flex items-center justify-center gap-6 pb-2">
-                                            <button
-                                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); removeCard('reject'); }}
-                                                className="w-14 h-14 rounded-full bg-zinc-800/80 border border-red-500/20 flex items-center justify-center text-red-500 hover:scale-110 transition-all z-20 cursor-pointer"
-                                            >
-                                                <X className="w-7 h-7" />
-                                            </button>
-                                            <button
-                                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPremiumModal(true); }}
-                                                className="w-12 h-12 rounded-full bg-zinc-800/80 border border-yellow-500/20 flex items-center justify-center text-yellow-500 hover:scale-110 transition-all z-20 cursor-pointer"
-                                            >
-                                                <Sparkles className="w-5 h-5 fill-yellow-500" />
-                                            </button>
-                                            <button
-                                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); removeCard('like'); }}
-                                                className="w-14 h-14 rounded-full bg-zinc-800/80 border border-green-500/20 flex items-center justify-center text-green-500 hover:scale-110 transition-all z-20 cursor-pointer"
-                                            >
-                                                <Heart className="w-7 h-7 fill-green-500" />
-                                            </button>
-                                        </div>
-
-                                        {/* Bio */}
-                                        <div className="space-y-3">
-                                            <h3 className="text-sm font-semibold text-white/40 uppercase tracking-wider flex items-center gap-2">
-                                                <User className="w-4 h-4" /> About Me
-                                            </h3>
-                                            <p className="text-white/90 leading-relaxed text-lg font-light">
-                                                {profile.bio || "No biography yet. Ask me about it!"}
-                                            </p>
-                                        </div>
-
-                                        {/* Interests */}
-                                        {profile.interests && profile.interests.length > 0 && (
-                                            <div className="space-y-3">
-                                                <h3 className="text-sm font-semibold text-white/40 uppercase tracking-wider flex items-center gap-2">
-                                                    <Tag className="w-4 h-4" /> Interests
-                                                </h3>
-                                                <div className="flex flex-wrap gap-2">
-                                                    {profile.interests.map((interest, idx) => (
-                                                        <span
-                                                            key={idx}
-                                                            className="px-4 py-2 rounded-full bg-white/5 border border-white/10 text-sm text-white/80"
+                                                    <div className="flex items-center justify-center gap-6 pb-2">
+                                                        <button
+                                                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); removeCard('reject'); }}
+                                                            className="w-14 h-14 rounded-full bg-zinc-800/80 border border-red-500/20 flex items-center justify-center text-red-500 hover:scale-110 transition-all z-20 cursor-pointer"
                                                         >
-                                                            {interest}
-                                                        </span>
-                                                    ))}
+                                                            <X className="w-7 h-7" />
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowPremiumModal(true); }}
+                                                            className="w-12 h-12 rounded-full bg-zinc-800/80 border border-yellow-500/20 flex items-center justify-center text-yellow-500 hover:scale-110 transition-all z-20 cursor-pointer"
+                                                        >
+                                                            <Sparkles className="w-5 h-5 fill-yellow-500" />
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); removeCard('like'); }}
+                                                            className="w-14 h-14 rounded-full bg-zinc-800/80 border border-green-500/20 flex items-center justify-center text-green-500 hover:scale-110 transition-all z-20 cursor-pointer"
+                                                        >
+                                                            <Heart className="w-7 h-7 fill-green-500" />
+                                                        </button>
+                                                    </div>
+
+                                                    <div className="space-y-3">
+                                                        <h3 className="text-sm font-semibold text-white/40 uppercase tracking-wider flex items-center gap-2">
+                                                            <User className="w-4 h-4" /> About Me
+                                                        </h3>
+                                                        <p className="text-white/90 leading-relaxed text-lg font-light">
+                                                            {profile.bio || "No biography yet. Ask me about it!"}
+                                                        </p>
+                                                    </div>
+
+                                                    {profile.interests && profile.interests.length > 0 && (
+                                                        <div className="space-y-3">
+                                                            <h3 className="text-sm font-semibold text-white/40 uppercase tracking-wider flex items-center gap-2">
+                                                                <Tag className="w-4 h-4" /> Interests
+                                                            </h3>
+                                                            <div className="flex flex-wrap gap-2">
+                                                                {profile.interests.map((interest, idx) => (
+                                                                    <span
+                                                                        key={idx}
+                                                                        className="px-4 py-2 rounded-full bg-white/5 border border-white/10 text-sm text-white/80"
+                                                                    >
+                                                                        {interest}
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    <div className="grid grid-cols-2 gap-4">
+                                                        <div className="p-4 rounded-xl bg-white/5 border border-white/5 space-y-1">
+                                                            <span className="text-xs text-white/40 uppercase tracking-wider block">Looking For</span>
+                                                            <span className="font-medium capitalize text-white">{profile.looking_for || 'Anyone'}</span>
+                                                        </div>
+                                                        <div className="p-4 rounded-xl bg-white/5 border border-white/5 space-y-1">
+                                                            <span className="text-xs text-white/40 uppercase tracking-wider block">Gender</span>
+                                                            <span className="font-medium capitalize text-white">{profile.gender || 'Not specified'}</span>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="pt-4 border-t border-white/5 text-center">
+                                                        <p className="text-xs text-white/30 flex items-center justify-center gap-1">
+                                                            <Calendar className="w-3 h-3" /> Joined {joinDate}
+                                                        </p>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        )}
-
-                                        {/* Basic Info */}
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="p-4 rounded-xl bg-white/5 border border-white/5 space-y-1">
-                                                <span className="text-xs text-white/40 uppercase tracking-wider block">Looking For</span>
-                                                <span className="font-medium capitalize text-white">{profile.looking_for || 'Anyone'}</span>
-                                            </div>
-                                            <div className="p-4 rounded-xl bg-white/5 border border-white/5 space-y-1">
-                                                <span className="text-xs text-white/40 uppercase tracking-wider block">Gender</span>
-                                                <span className="font-medium capitalize text-white">{profile.gender || 'Not specified'}</span>
-                                            </div>
-                                        </div>
-
-                                        {/* Footer Info */}
-                                        <div className="pt-4 border-t border-white/5 text-center">
-                                            <p className="text-xs text-white/30 flex items-center justify-center gap-1">
-                                                <Calendar className="w-3 h-3" /> Joined {joinDate}
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </SwipeableCard>
-                        )
-                    })}
-                </AnimatePresence>
-            </div>
+                                        </SwipeableCard>
+                                    )
+                                })}
+                            </AnimatePresence>
+                        </div>
+                    )}
 
             <MatchModal
                 isOpen={showMatchModal}
