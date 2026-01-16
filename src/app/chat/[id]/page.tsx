@@ -104,8 +104,8 @@ export default function ChatPage() {
             return
         }
 
-        // 1. Simulate human delay (Random between 5s and 10s)
-        const randomDelay = Math.floor(Math.random() * 5000) + 5000
+        // 1. Simulate REALISTIC human delay (Random between 25s and 35s)
+        const randomDelay = Math.floor(Math.random() * 10000) + 25000
         const minDelayPromise = new Promise(resolve => setTimeout(resolve, randomDelay))
 
         try {
