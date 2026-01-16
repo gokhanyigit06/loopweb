@@ -37,7 +37,8 @@ RETURNS boolean
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
-    -- (Variable declarations for messages removed)
+DECLARE
+    existing_match uuid;
 BEGIN
     INSERT INTO likes (liker_id, liked_id) VALUES (liker_id, liked_id) ON CONFLICT DO NOTHING;
     
