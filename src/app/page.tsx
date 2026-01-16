@@ -1,8 +1,18 @@
 import { Navbar } from '@/components/layout/Navbar'
 import { Hero } from '@/components/landing/Hero'
 import { Features } from '@/components/landing/Features'
+import { redirect } from 'next/navigation'
 
-export default function Home() {
+export default function Home({
+  searchParams,
+}: {
+  searchParams: { code?: string }
+}) {
+  // Emergency catch: If Supabase redirects here with a code, forward to callback
+  if (searchParams.code) {
+    redirect(`/auth/callback?code=${searchParams.code}`)
+  }
+
   return (
     <main className="min-h-screen bg-background">
       <Navbar />
