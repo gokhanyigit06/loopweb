@@ -1,17 +1,29 @@
 import { NextResponse } from "next/server";
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { createClient } from '@supabase/supabase-js'
+
+// Initialize Supabase Client (Standard)
+const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 
 export async function POST(req: Request) {
     try {
-        console.log("🤖 BOT API: Request received! (Direct REST Mode)");
-        const { message, botName, botBio, botInterests, history } = await req.json();
+        console.log("🤖 BOT API: Request received! (Server-Side Handling)");
+        // Parse request
+        const { message, botName, botBio, botInterests, history, match_id, bot_id } = await req.json();
         const apiKey = process.env.GOOGLE_API_KEY;
 
         if (!apiKey) {
             console.error("🤖 BOT API ERROR: No API Key found in env!");
-            return NextResponse.json({ reply: "I'm feeling a bit shy... (No API Key)" }, { status: 500 });
+            return NextResponse.json({ reply: "Config Error" }, { status: 500 });
         }
 
-        // Prepare context
+        // 1. Generate Content Immediately
+        // Using 'gemini-2.0-flash-001' (Confirmed available)
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-001:generateContent?key=${apiKey}`;
+
         const systemPrompt = `
         You are roleplaying as a person on a dating app.
         Your name is ${botName}.
@@ -29,12 +41,7 @@ export async function POST(req: Request) {
         Reply as ${botName}:
         `;
 
-        // Direct Fetch Call to Google API
-        // Using 'gemini-2.0-flash-001' (Confirmed available in user's model list)
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-001:generateContent?key=${apiKey}`;
-
-        console.log("🤖 BOT API: Sending fetch request to Google...");
-
+        console.log("🤖 BOT API: Calling Gemini...");
         const response = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -47,30 +54,43 @@ export async function POST(req: Request) {
 
         if (!response.ok) {
             const errorBody = await response.text();
-            console.error(`🤖 Google API Fetch Error (${response.status}):`, errorBody);
-            return NextResponse.json(
-                { reply: "Oops, connection error!", debug: errorBody },
-                { status: response.status }
-            );
+            console.error(`🤖 Google API Error:`, errorBody);
+            // Don't crash, just return error
+            return NextResponse.json({ error: errorBody }, { status: 500 });
         }
 
         const data = await response.json();
-        console.log("🤖 BOT API: Success!");
-
-        // Extract text
         const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
-        if (!replyText) {
-            console.error("🤖 BOT API: Unexpected response format:", JSON.stringify(data));
-            return NextResponse.json({ reply: "..." }, { status: 500 });
+        if (!replyText) throw new Error("No text generated");
+
+        console.log("🤖 BOT API: Reply generated:", replyText);
+
+        // 2. Server-Side Delay (Simulate Thinking/Typing)
+        // 20 seconds is safe for Node runtime (default in Next.js/Vercel)
+        console.log("🤖 BOT API: Waiting 20s before sending...");
+        await new Promise(resolve => setTimeout(resolve, 20000));
+
+        // 3. Insert into Database via RPC (Server Side!)
+        console.log("🤖 BOT API: Inserting message to DB...");
+        const { error: dbError } = await supabase.rpc('send_bot_message', {
+            match_id: match_id,
+            sender_id: bot_id,
+            content: replyText
+        });
+
+        if (dbError) {
+            console.error("🤖 BOT DB Error:", dbError);
+            throw dbError;
         }
 
-        return NextResponse.json({ reply: replyText });
+        console.log("🤖 BOT API: Message sent successfully!");
+        return NextResponse.json({ success: true, reply: replyText });
 
     } catch (error: any) {
         console.error("🤖 BOT API FATAL ERROR:", error);
         return NextResponse.json(
-            { reply: "System Error: " + error.message },
+            { error: error.message },
             { status: 500 }
         );
     }

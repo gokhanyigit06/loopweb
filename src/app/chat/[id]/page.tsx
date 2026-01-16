@@ -20,6 +20,7 @@ interface Profile {
     full_name: string
     avatar_url: string
     location: string
+    email?: string // Checking for bot status
 }
 
 export default function ChatPage() {
@@ -29,9 +30,7 @@ export default function ChatPage() {
     const [matchProfile, setMatchProfile] = useState<Profile | null>(null)
     const [currentUser, setCurrentUser] = useState<any>(null)
     const [loading, setLoading] = useState(true)
-    const [isTyping, setIsTyping] = useState(false)
-    // Ref to track if we've already replied to a specific message ID to prevent loops
-    const lastRepliedMessageId = useRef<string | null>(null)
+    const [isTyping, setIsTyping] = useState(false) // Still useful for real-time updates
 
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const supabase = createClient()
@@ -39,12 +38,8 @@ export default function ChatPage() {
     const matchId = params.id as string
 
     // Scroll to bottom on new messages
-    const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-    }
-
     useEffect(() => {
-        scrollToBottom()
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     }, [messages, isTyping])
 
     useEffect(() => {
@@ -65,10 +60,15 @@ export default function ChatPage() {
                 (payload) => {
                     const newMsg = payload.new as Message
                     setMessages(prev => {
-                        // Avoid duplicates if any
+                        // Avoid duplicates
                         if (prev.find(m => m.id === newMsg.id)) return prev
                         return [...prev, newMsg]
                     })
+
+                    // If we receive a message from the other person, stop typing indicator
+                    if (newMsg.sender_id !== currentUser?.id) {
+                        setIsTyping(false)
+                    }
                 }
             )
             .subscribe()
@@ -76,110 +76,7 @@ export default function ChatPage() {
         return () => {
             supabase.removeChannel(channel)
         }
-    }, [matchId])
-
-    // AUTO-REPLY BOT LOGIC
-    useEffect(() => {
-        if (messages.length === 0 || !currentUser || !matchProfile) return
-
-        const lastMessage = messages[messages.length - 1]
-
-        // Conditions to reply:
-        // 1. Last message is sent by ME (currentUser)
-        // 2. We haven't already replied to this exact message ID (prevent double triggers)
-        // 3. Bot is not currently typing
-        const isMe = lastMessage.sender_id === currentUser.id
-
-        if (isMe && lastRepliedMessageId.current !== lastMessage.id && !isTyping) {
-            lastRepliedMessageId.current = lastMessage.id // Mark as handled
-            triggerBotResponse(lastMessage.content)
-        }
-    }, [messages, currentUser, matchProfile])
-
-    const triggerBotResponse = async (userMsg: string) => {
-        console.log("🚀 TRIGGER: Bot response triggered for message:", userMsg);
-        setIsTyping(true)
-        if (!matchProfile) {
-            console.error("❌ TRIGGER: Match profile missing!");
-            return
-        }
-
-        // 1. Simulate REALISTIC human delay (Random between 25s and 35s)
-        const randomDelay = Math.floor(Math.random() * 10000) + 25000
-        const minDelayPromise = new Promise(resolve => setTimeout(resolve, randomDelay))
-
-        try {
-            // 2. Prepare conversation history for context
-            const history = messages.slice(-10).map(m => ({
-                is_user: m.sender_id === currentUser.id,
-                content: m.content
-            }))
-
-            console.log("🚀 TRIGGER: Calling API...");
-
-            // 3. Call our Smart Bot API (connected to Google Gemini)
-            const apiPromise = fetch('/api/chat/bot', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    message: userMsg,
-                    botName: matchProfile.full_name,
-                    botBio: (matchProfile as any).bio || "Just a regular person looking for connection.",
-                    botInterests: (matchProfile as any).interests || [],
-                    history: history
-                })
-            })
-
-            // Wait for both the natural delay and the API response
-            const [_, apiResponse] = await Promise.all([minDelayPromise, apiPromise])
-
-            if (!apiResponse.ok) {
-                console.error("❌ TRIGGER: API Response Status:", apiResponse.status);
-                throw new Error('Bot API failed with status ' + apiResponse.status)
-            }
-
-            const data = await apiResponse.json()
-            const replyContent = data.reply
-
-            console.log("🚀 TRIGGER: API Reply received:", replyContent);
-
-            setIsTyping(false)
-
-            // 4. OPTIMISTIC UI: Show message immediately
-            const tempBotMsgId = 'bot-' + Date.now()
-            const optimisticBotMsg: Message = {
-                id: tempBotMsgId,
-                content: replyContent,
-                sender_id: matchProfile.id,
-                created_at: new Date().toISOString()
-            }
-
-            setMessages(prev => [...prev, optimisticBotMsg])
-
-            try {
-                // 5. Persist message in DB via RPC
-                const { error } = await supabase.rpc('send_bot_message', {
-                    match_id: matchId,
-                    sender_id: matchProfile.id,
-                    content: replyContent
-                })
-
-                if (error) {
-                    console.error("Bot reply failed:", error)
-                    // Rollback if DB fails
-                    setMessages(prev => prev.filter(m => m.id !== tempBotMsgId))
-                }
-            } catch (err) {
-                console.error("Critical bot error:", err)
-                setMessages(prev => prev.filter(m => m.id !== tempBotMsgId))
-            }
-
-        } catch (error) {
-            console.error("Bot generation error:", error)
-            // alert("Debug: Bot failed to reply. Check console."); // Uncomment for debugging
-            setIsTyping(false)
-        }
-    }
+    }, [matchId, currentUser]) // Add currentUser to deps to safely access id
 
     const loadChatData = async () => {
         try {
@@ -188,7 +85,7 @@ export default function ChatPage() {
 
             if (!user) return
 
-            // Get match details to find the other user
+            // Get match details
             const { data: matchData, error: matchError } = await supabase
                 .from('matches')
                 .select('*')
@@ -232,7 +129,7 @@ export default function ChatPage() {
         const msgContent = newMessage.trim()
         setNewMessage('') // Optimistic clear
 
-        // Optimistic UI: Add message immediately
+        // Optimistic UI
         const tempId = 'temp-' + Date.now()
         const optimisticMsg: Message = {
             id: tempId,
@@ -244,6 +141,7 @@ export default function ChatPage() {
         setMessages(prev => [...prev, optimisticMsg])
 
         try {
+            // 1. Send User Message to DB
             const { error } = await supabase
                 .from('messages')
                 .insert({
@@ -253,11 +151,48 @@ export default function ChatPage() {
                 })
 
             if (error) {
-                console.error('Error sending message (RLS?):', error)
-                // Rollback if error
+                console.error('Error sending message:', error)
                 setMessages(prev => prev.filter(m => m.id !== tempId))
                 alert('Message failed to send. Check console.')
+                return
             }
+
+            // ---------------------------------------------------------
+            // 🤖 BOT TRIGGER LOGIC (Fire & Forget)
+            // ---------------------------------------------------------
+            // Assume everyone is a bot for this demo, or check specific conditions
+            // Since we ONLY have fake users in this simulated environment, we trigger for everyone except ME.
+            const isBot = true;
+
+            if (isBot && matchProfile) {
+                // Show typing indicator immediately locally (optional, purely visual until reload)
+                setIsTyping(true)
+
+                const history = messages.slice(-10).map(m => ({
+                    is_user: m.sender_id === currentUser.id,
+                    content: m.content
+                }))
+
+                console.log("🚀 FIRE & FORGET: Triggering Bot API...");
+
+                // NO AWAIT here! Let the browser handle the request in background.
+                // We send 'match_id' and 'bot_id' so the SERVER can insert the reply.
+                fetch('/api/chat/bot', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        message: msgContent,
+                        botName: matchProfile.full_name,
+                        botBio: (matchProfile as any).bio || "Just a mystery.",
+                        botInterests: (matchProfile as any).interests || [],
+                        history: history,
+                        match_id: matchId,
+                        bot_id: matchProfile.id
+                    }),
+                    keepalive: true // Crucial: Allows request to survive page navigation
+                }).catch(err => console.error("❌ Bot trigger failed:", err))
+            }
+
         } catch (error) {
             console.error('Error sending message:', error)
             setMessages(prev => prev.filter(m => m.id !== tempId))
