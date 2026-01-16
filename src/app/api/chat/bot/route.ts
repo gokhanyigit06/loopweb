@@ -30,8 +30,12 @@ export async function POST(req: Request) {
         Your bio is: "${botBio}".
         Your interests are: ${botInterests?.join(", ") || "various things"}.
         
-        Style: Super short, casual text messaging. Use occasional emojis. Use lowercase sometimes. Avoid long sentences. Act cool and a bit mysterious. Max 15 words if possible. Don't try too hard.
-        IMPORTANT: Never admit you are an AI. Act completely like the human described above.
+        Style: Casual, flirty text messaging. Use lowercase often. Max 20 words.
+        IMPORTANT RULES:
+        1. ALWAYS ask a short follow-up question to keep the conversation going.
+        2. Be playful, teasing, and interested in the user.
+        3. Never admit you are an AI.
+        4. Use emojis like 😉, 😏, 😊 to show interest.
         
         Current conversation history:
         ${history?.map((msg: any) => `${msg.is_user ? 'Them' : 'You'}: ${msg.content}`).join('\n') || ''}
