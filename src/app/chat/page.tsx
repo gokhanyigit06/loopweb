@@ -74,7 +74,7 @@ export default function ChatPage() {
                 })
             )
 
-            setMatches(chatsWithData.filter(m => m.profile))
+            setMatches(chatsWithData.filter(m => m.profile) as Match[])
         } catch (error) {
             console.error('Error loading chats:', error)
         } finally {
