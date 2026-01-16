@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { getBotReply } from '@/lib/bot-brain'
+
 
 interface Message {
     id: string
@@ -96,21 +96,44 @@ export default function ChatPage() {
         }
     }, [messages, currentUser, matchProfile])
 
-    const triggerBotResponse = (userMsg: string) => {
+    const triggerBotResponse = async (userMsg: string) => {
         setIsTyping(true)
+        if (!matchProfile) return
 
-        // 1. Simulate human delay (random between 3s and 6s)
-        const delay = Math.floor(Math.random() * 3000) + 3000
+        // 1. Simulate human delay (Minimum 3s to feel real)
+        const minDelayPromise = new Promise(resolve => setTimeout(resolve, 3000))
 
-        setTimeout(async () => {
-            if (!matchProfile) return
+        try {
+            // 2. Prepare conversation history for context
+            const history = messages.slice(-10).map(m => ({
+                is_user: m.sender_id === currentUser.id,
+                content: m.content
+            }))
 
-            // 2. Get smart reply from our "Brain"
-            const replyContent = getBotReply(userMsg, matchProfile.location || '')
+            // 3. Call our Smart Bot API (connected to Google Gemini)
+            const apiPromise = fetch('/api/chat/bot', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    message: userMsg,
+                    botName: matchProfile.full_name,
+                    botBio: (matchProfile as any).bio || "Just a regular person looking for connection.",
+                    botInterests: (matchProfile as any).interests || [],
+                    history: history
+                })
+            })
 
-            setIsTyping(false) // Stop typing indicator
+            // Wait for both the natural delay and the API response
+            const [_, apiResponse] = await Promise.all([minDelayPromise, apiPromise])
 
-            // 3. OPTIMISTIC UI: Show message immediately
+            if (!apiResponse.ok) throw new Error('Bot API failed')
+
+            const data = await apiResponse.json()
+            const replyContent = data.reply
+
+            setIsTyping(false)
+
+            // 4. OPTIMISTIC UI: Show message immediately
             const tempBotMsgId = 'bot-' + Date.now()
             const optimisticBotMsg: Message = {
                 id: tempBotMsgId,
@@ -122,7 +145,7 @@ export default function ChatPage() {
             setMessages(prev => [...prev, optimisticBotMsg])
 
             try {
-                // 4. Send message via RPC (as the bot)
+                // 5. Persist message in DB via RPC
                 const { error } = await supabase.rpc('send_bot_message', {
                     match_id: matchId,
                     sender_id: matchProfile.id,
@@ -138,7 +161,11 @@ export default function ChatPage() {
                 console.error("Critical bot error:", err)
                 setMessages(prev => prev.filter(m => m.id !== tempBotMsgId))
             }
-        }, delay)
+
+        } catch (error) {
+            console.error("Bot generation error:", error)
+            setIsTyping(false)
+        }
     }
 
     const loadChatData = async () => {
