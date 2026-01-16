@@ -292,9 +292,11 @@ export function CardStack() {
 
     return (
         <>
-            {/* PERFORMANCE FIX: Unmount cards while modal is open to prevent mobile crashes */}
-            {showMatchModal ? <div className="h-[600px] w-full" /> :
-                loading ? loadingView :
+            {/* PERFORMANCE FIX: Use CSS hiding (display: none) instead of unmounting. 
+                This prevents CardStack from re-mounting and re-fetching data when the modal closes, 
+                solving the crash issue on mobile devices. */}
+            <div style={{ display: showMatchModal ? 'none' : 'block' }}>
+                {loading ? loadingView :
                     !currentUser ? loginView :
                         profiles.length === 0 ? emptyView : (
                             <div className="relative w-full max-w-sm h-[600px] mx-auto perspective-1000">
@@ -410,6 +412,10 @@ export function CardStack() {
                                 </AnimatePresence>
                             </div>
                         )}
+            </div>
+
+            {/* Placeholder to maintain height prevent layout shift when cards are hidden */}
+            {showMatchModal && <div className="h-[600px] w-full" />}
 
             <MatchModal
                 isOpen={showMatchModal}
